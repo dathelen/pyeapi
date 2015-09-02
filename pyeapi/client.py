@@ -542,6 +542,31 @@ class Node(object):
         block_end = line_end + block_end
         return config[block_start:block_end]
 
+    def subsection(self, regex, config):
+        """Returns a subsection of the config
+
+        Args:
+            regex (str): A valid regular expression used to select sections
+                of configuration to return
+            config (str): This is the block of config already found
+                by the section method.
+
+        Returns:
+            The configuration section as a string object.
+        """
+        match = re.search(regex, config, re.M)
+        if not match:
+            raise TypeError('config subsection not found')
+        block_start, line_end = match.regs[0]
+
+        match = re.search(r'^(?:^\s{3}\b|[^\s])', config[line_end:], re.M)
+        if not match:
+            raise TypeError('could not find end\n%s' % config[line_end:])
+        _, block_end = match.regs[0]
+
+        block_end = line_end + block_end
+        return config[block_start:block_end]
+
     def enable(self, commands, encoding='json', strict=False):
         """Sends the array of commands to the node in enable mode
 
@@ -745,7 +770,3 @@ def connect_to(name):
                          port=kwargs.get('port'))
     node = Node(connection, **kwargs)
     return node
-
-
-
-

@@ -101,8 +101,12 @@ class Ipinterfaces(EntityCollection):
         Return:
             dict: A dict object intended to be merged into the resource dict
         """
-        ip_config = config['interfaceAddress'][0].get('primaryIp')
+        # Return None if the interfaceAddress key is an empty array
+        if not config['interfaceAddress']:
+            return dict(address=None)
+
         value = None
+        ip_config = config['interfaceAddress'][0].get('primaryIp')
         if ip_config:
             value = '%s/%s' % (ip_config['address'], ip_config['maskLen'])
 

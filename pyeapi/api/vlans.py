@@ -85,6 +85,7 @@ class Vlans(EntityCollection):
     for working with VLAN configurations on an EOS node.
 
     """
+    @profile
     def get(self, value):
         """Returns the VLAN configuration as a resource dict.
 

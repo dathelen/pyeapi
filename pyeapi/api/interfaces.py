@@ -163,8 +163,13 @@ class BaseInterface(EntityCollection):
                 the interface configuration.  If the specified interface
                 does not exist, then None is returned
         """
-        config = self.get_block('^interface %s' % name)
-        if not config:
+        commands = list()
+        commands.append('show interfaces %s' % name)
+
+        try:
+            result = self.node.enable(commands)
+            config = result[0]['result']['interfaces'].get(name)
+        except:
             return None
 
         resource = dict(name=name, type='generic')
@@ -183,7 +188,7 @@ class BaseInterface(EntityCollection):
                 from the config block.  The returned dict object is intended
                 to be merged into the interface resource dict
         """
-        value = 'no shutdown' not in config
+        value = config['interfaceStatus'] == 'disabled'
         return dict(shutdown=value)
 
     def _parse_description(self, config):
@@ -198,10 +203,8 @@ class BaseInterface(EntityCollection):
                 configured, None is returned as the value.  The returned dict
                 is intended to be merged into the interface resource dict.
         """
-        value = None
-        match = re.search(r'description (.+)$', config, re.M)
-        if match:
-            value = match.group(1)
+        value = config.get('description')
+        value = value if value else None
         return dict(description=value)
 
     def create(self, name):
@@ -320,16 +323,23 @@ class EthernetInterface(BaseInterface):
                     "flowcontrol_receive": [on, off]
                 }
         """
-        config = self.get_block('^interface %s' % name)
+        commands = list()
+        commands.append('show interfaces %s' % name)
+        commands.append('show sflow interfaces')
+        commands.append('show flowcontrol')
 
-        if not config:
+        try:
+            result = self.node.enable(commands)
+            config = result[0]['result']['interfaces'].get(name)
+            sflow_config = result[1]['result']['interfaces'].get(name)
+            flow_config = result[2]
+        except:
             return None
 
         resource = super(EthernetInterface, self).get(name)
         resource.update(dict(name=name, type='ethernet'))
-        resource.update(self._parse_sflow(config))
-        resource.update(self._parse_flowcontrol_send(config))
-        resource.update(self._parse_flowcontrol_receive(config))
+        resource.update(self._parse_sflow(sflow_config))
+        resource.update(self._parse_flowcontrol(name, flow_config))
         return resource
 
     def _parse_sflow(self, config):
@@ -343,10 +353,10 @@ class EthernetInterface(BaseInterface):
                 from the config block.  The returned dict object is intended
                 to be merged into the interface resource dict
         """
-        value = 'no sflow' not in config
+        value = config is not None
         return dict(sflow=value)
 
-    def _parse_flowcontrol_send(self, config):
+    def _parse_flowcontrol(self, name, config):
         """Scans the config block and returns the flowcontrol send value
 
         Args:
@@ -357,28 +367,21 @@ class EthernetInterface(BaseInterface):
                 retrieved from the config block.  The returned dict object
                 is intended to be merged into the interface resource dict
         """
-        value = 'off'
-        match = re.search(r'flowcontrol send (\w+)$', config, re.M)
-        if match:
-            value = match.group(1)
-        return dict(flowcontrol_send=value)
+        if config['encoding'] == 'json':
+            send = config['txAdminState']
+            receive = config['rxAdminState']
+        elif config['encoding'] == 'text':
+            text = config['result']['output']
+            abbr = re.search(r'\D+(\d\S*)', name)
+            if abbr:
+                abbr = name[0:2] + abbr.group(1)
+            flowcontrol = re.search(r'^%s\s+(\w+)\s+\w+\s+(\w+)' % abbr, text,
+                                    re.M)
+            if flowcontrol:
+                send = flowcontrol.group(1)
+                receive = flowcontrol.group(2)
 
-    def _parse_flowcontrol_receive(self, config):
-        """Scans the config block and returns the flowcontrol receive value
-
-        Args:
-            config (str): The interface config block to scan
-
-        Returns:
-            dict: Returns a dict object with the flowcontrol receive value
-                retrieved from the config block.  The returned dict object
-                is intended to be merged into the interface resource dict
-        """
-        value = 'off'
-        match = re.search(r'flowcontrol receive (\w+)$', config, re.M)
-        if match:
-            value = match.group(1)
-        return dict(flowcontrol_receive=value)
+        return dict(flowcontrol_send=send, flowcontrol_receive=receive)
 
     def create(self, name):
         """Creating Ethernet interfaces is currently not supported

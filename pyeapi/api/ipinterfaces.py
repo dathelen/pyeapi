@@ -83,6 +83,10 @@ class Ipinterfaces(EntityCollection):
         except:
             return None
 
+        # Not a layer 3 interface if model does not equal routed
+        if config['forwardingModel'] != 'routed':
+            return None
+
         resource = dict(name=name)
         resource.update(self._parse_address(config))
         resource.update(self._parse_mtu(config))

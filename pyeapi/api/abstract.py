@@ -202,5 +202,3 @@ class EntityCollection(BaseEntity, Mapping):
 
     def get(self, name, default=None):
         raise NotImplementedError
-
-

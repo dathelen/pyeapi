@@ -85,12 +85,11 @@ class Vlans(EntityCollection):
     for working with VLAN configurations on an EOS node.
 
     """
-
     def get(self, value):
         """Returns the VLAN configuration as a resource dict.
 
         Args:
-            vid (string): The vlan identifier to retrieve from the
+            value (string): The vlan identifier to retrieve from the
                 running configuration.  Valid values are in the range
                 of 1 to 4095
 
@@ -99,10 +98,15 @@ class Vlans(EntityCollection):
                 key/value pairs.
 
         """
-        config = self.get_block('vlan %s' % value)
-        if not config:
+        # Check if vlan already exists
+        match = self.node.enable("show vlan %s | grep '^%s '" % (value, value),
+                                 encoding='text')
+
+        if not match:
             return None
 
+        result = self.node.config(['vlan %s' % value, 'show active all'])
+        config = result[1]['messages'][0]
         response = dict(vlan_id=value)
         response.update(self._parse_name(config))
         response.update(self._parse_state(config))
@@ -345,4 +349,3 @@ def instance(node):
             resource
     """
     return Vlans(node)
-

@@ -49,14 +49,15 @@ Parameters:
 
 """
 
-import re
+# import re
 
 from pyeapi.api import EntityCollection
 from pyeapi.utils import make_iterable
 
-NAME_RE = re.compile(r'(?:name\s)(?P<value>.*)$', re.M)
-STATE_RE = re.compile(r'(?:state\s)(?P<value>.*)$', re.M)
-TRUNK_GROUP_RE = re.compile(r'(?:trunk\sgroup\s)(?P<value>.*)$', re.M)
+# NAME_RE = re.compile(r'(?:name\s)(?P<value>.*)$', re.M)
+# STATE_RE = re.compile(r'(?:state\s)(?P<value>.*)$', re.M)
+# TRUNK_GROUP_RE = re.compile(r'(?:trunk\sgroup\s)(?P<value>.*)$', re.M)
+
 
 def isvlan(value):
     """Checks if the argument is a valid VLAN
@@ -85,7 +86,6 @@ class Vlans(EntityCollection):
     for working with VLAN configurations on an EOS node.
 
     """
-    @profile
     def get(self, value):
         """Returns the VLAN configuration as a resource dict.
 
@@ -99,69 +99,23 @@ class Vlans(EntityCollection):
                 key/value pairs.
 
         """
-        # Check if vlan already exists
-        match = self.node.enable("show vlan %s | grep '^%s '" % (value, value),
-                                 encoding='text')
+        commands = list()
+        commands.append('show vlan %s' % value)
+        commands.append('show vlan %s trunk group' % value)
 
-        if not match:
+        try:
+            result = self.node.enable(commands)
+            vlan_info = result[0]['result']['vlans'].get(str(value))
+            vlan_trunks = result[1]['result']['trunkGroups'].get(str(value))
+        except:
             return None
 
-        result = self.node.config(['vlan %s' % value, 'show active all'])
-        config = result[1]['messages'][0]
         response = dict(vlan_id=value)
-        response.update(self._parse_name(config))
-        response.update(self._parse_state(config))
-        response.update(self._parse_trunk_groups(config))
+        response.update(name=vlan_info.get('name'))
+        response.update(state=vlan_info.get('status'))
+        response.update(trunk_groups=vlan_trunks.get('names'))
 
         return response
-
-    def _parse_name(self, config):
-        """ _parse_name scans the provided configuration block and extracts
-        the vlan name.  The config block is expected to always return the
-        vlan name.  The return dict is intended to be merged into the response
-        dict.
-
-        Args:
-            config (str): The vlan configuration block from the nodes running
-                configuration
-
-        Returns:
-            dict: resource dict attribute
-        """
-        value = NAME_RE.search(config).group('value')
-        return dict(name=value)
-
-    def _parse_state(self, config):
-        """ _parse_state scans the provided configuration block and extracts
-        the vlan state value.  The config block is expected to always return
-        the vlan state config.  The return dict is inteded to be merged into
-        the response dict.
-
-        Args:
-            config (str): The vlan configuration block from the nodes
-                running configuration
-
-        Returns:
-            dict: resource dict attribute
-        """
-        value = STATE_RE.search(config).group('value')
-        return dict(state=value)
-
-    def _parse_trunk_groups(self, config):
-        """ _parse_trunk_groups scans the provided configuration block and
-        extracts all the vlan trunk groups.  If no trunk groups are configured
-        an empty List is returned as the vlaue.  The return dict is intended
-        to be merged into the response dict.
-
-        Args:
-            config (str): The vlan configuration block form the node's
-                running configuration
-
-        Returns:
-            dict: resource dict attribute
-        """
-        values = TRUNK_GROUP_RE.findall(config)
-        return dict(trunk_groups=values)
 
     def getall(self):
         """Returns a dict object of all Vlans in the running-config

@@ -536,7 +536,6 @@ class PortchannelInterface(BaseInterface):
 
         response = super(PortchannelInterface, self).get(name)
         response.update(dict(name=name, type='portchannel'))
-
         response['members'] = self.get_members(name)
         response['lacp_mode'] = self.get_lacp_mode(name)
         response.update(self._parse_minimum_links(config))
@@ -710,8 +709,13 @@ class VxlanInterface(BaseInterface):
                 the interface configuration.  If the specified interface
                 does not exist, then None is returned
         """
-        config = self.get_block('^interface %s' % name)
-        if not config:
+        commands = list()
+        commands.append('show running-config interfaces %s' % name)
+
+        try:
+            result = self.node.enable(commands, encoding='text')
+            config = result[0]['result']['output']
+        except:
             return None
 
         response = super(VxlanInterface, self).get(name)

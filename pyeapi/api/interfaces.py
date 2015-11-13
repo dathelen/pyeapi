@@ -368,6 +368,7 @@ class EthernetInterface(BaseInterface):
                 is intended to be merged into the interface resource dict
         """
         if config['encoding'] == 'json':
+            config = config['result']['interfaceFlowControls'].get(name)
             send = config['txAdminState']
             receive = config['rxAdminState']
         elif config['encoding'] == 'text':

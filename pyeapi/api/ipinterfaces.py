@@ -74,9 +74,13 @@ class Ipinterfaces(EntityCollection):
                 the current configuration of the node.  If the specified
                 interface does not exist then None is returned.
         """
-        config = self.get_block('interface %s' % name)
+        commands = list()
+        commands.append('show interfaces %s' % name)
 
-        if name[0:2] in ['Et', 'Po'] and not SWITCHPORT_RE.search(config, re.M):
+        try:
+            result = self.node.enable(commands)
+            config = result[0]['result']['interfaces'].get(name)
+        except:
             return None
 
         resource = dict(name=name)
@@ -97,8 +101,11 @@ class Ipinterfaces(EntityCollection):
         Return:
             dict: A dict object intended to be merged into the resource dict
         """
-        match = re.search(r'ip address ([^\s]+)', config)
-        value = match.group(1) if match else None
+        ip_config = config['interfaceAddress'][0].get('primaryIp')
+        value = None
+        if ip_config:
+            value = '%s/%s' % (ip_config['address'], ip_config['maskLen'])
+
         return dict(address=value)
 
     def _parse_mtu(self, config):
@@ -114,8 +121,8 @@ class Ipinterfaces(EntityCollection):
         Return:
             dict: A dict object intended to be merged into the resource dict
         """
-        match = re.search(r'mtu (\d+)', config)
-        return dict(mtu=int(match.group(1)))
+        value = config.get('mtu')
+        return dict(mtu=int(value))
 
     def getall(self):
         """ Returns all of the IP interfaces found in the running-config

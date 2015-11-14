@@ -46,6 +46,27 @@ import re
 
 from pyeapi.api import Entity, EntityCollection
 
+ROUTEMAPS_RE = re.compile(r'route-map\s(\w+)\s(\w+)\s(\d+)', re.M)
+ROUTEMAPS_NAME_RE = re.compile(r'route-map\s(\w+)\s\w+\s\d+', re.M)
+
+
+def split_routemaps(block):
+    starts = list()
+    ends = list()
+    blocks = list()
+
+    for m in ROUTEMAPS_RE.finditer(block):
+        starts.append(m.start())
+        if m.start() > 0:
+            ends.append(m.start() - 1)
+
+    ends.append(len(block))
+
+    for i, val in enumerate(starts):
+        blocks.append(block[val:ends[i]])
+
+    return blocks
+
 
 class Routemaps(EntityCollection):
     """The Routemaps class provides management of the routemaps configuration
@@ -95,7 +116,6 @@ class Routemaps(EntityCollection):
         """
         commands = list()
         commands.append('show route-map %s' % name)
-
         try:
             result = self.node.enable(commands, encoding='text')
             config = result[0]['result']['output']
@@ -108,35 +128,35 @@ class Routemaps(EntityCollection):
         return self._parse_entries(config)
 
     def getall(self):
+        commands = list()
+        commands.append('show route-map | grep route-map')
+
+        try:
+            result = self.node.enable(commands, encoding='text')
+            config = result[0]['result']['output']
+        except:
+            return None
+
+        if not config:
+            return None
+
         resources = dict()
-        routemaps_re = re.compile(r'^route-map\s(\w+)\s\w+\s\d+$', re.M)
-        for name in routemaps_re.findall(self.config):
-            routemap = self.get(name)
+        names = list(set(ROUTEMAPS_NAME_RE.findall(config)))
+
+        for name in names:
+            routemap = self.get(str(name))
             if routemap:
                 resources[name] = routemap
         return resources
 
     def _parse_entries(self, config):
 
-        routemaps_re = re.compile(r'route-map\s(\w+)\s(\w+)\s(\d+)', re.M)
-        starts = list()
-        ends = list()
-        blocks = list()
-        for m in routemaps_re.finditer(config):
-            starts.append(m.start())
-            if m.start() > 0:
-                ends.append(m.start() - 1)
-
-        ends.append(len(config))
-
-        for i, val in enumerate(starts):
-            blocks.append(config[val:ends[i]])
-
+        blocks = split_routemaps(config)
         entries = list()
 
         for entry in blocks:
             resource = dict()
-            rm = routemaps_re.search(entry)
+            rm = ROUTEMAPS_RE.search(entry)
             name, action, seqno = rm.groups()
 
             resource = dict(name=name, action=action, seqno=seqno, attr=dict())

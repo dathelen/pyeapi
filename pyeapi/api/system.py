@@ -63,12 +63,21 @@ class System(Entity):
         Returns:
             dict: Represents the node's system configuration
         """
+        commands = list()
+        commands.append('show running-config')
+
+        try:
+            result = self.node.enable(commands, encoding='text')
+            config = result[0]['result']['output']
+        except:
+            return None
+
         resource = dict()
-        resource.update(self._parse_hostname())
-        resource.update(self._parse_iprouting())
+        resource.update(self._parse_hostname(config))
+        resource.update(self._parse_iprouting(config))
         return resource
 
-    def _parse_hostname(self):
+    def _parse_hostname(self, config):
         """Parses the global config and returns the hostname value
 
         Returns:
@@ -76,19 +85,19 @@ class System(Entity):
                 object is intended to be merged into the resource dict
         """
         value = 'localhost'
-        match = re.search(r'^hostname ([^\s]+)$', self.config, re.M)
+        match = re.search(r'^hostname ([^\s]+)$', config, re.M)
         if match:
             value = match.group(1)
         return dict(hostname=value)
 
-    def _parse_iprouting(self):
+    def _parse_iprouting(self, config):
         """Parses the global config and returns the ip routing value
 
         Returns:
             dict: The configure value for ip routing.  The returned dict
                 object is intendd to be merged into the resource dict
         """
-        value = 'no ip routing' not in self.config
+        value = 'no ip routing' not in config
         return dict(iprouting=value)
 
     def set_hostname(self, value=None, default=False):

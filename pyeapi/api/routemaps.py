@@ -188,7 +188,7 @@ class Routemaps(EntityCollection):
         return dict(set=set_re.findall(config))
 
     def _parse_continue_statement(self, config):
-        continue_re = re.compile(r'^\s+continue\s(\d+)$', re.M)
+        continue_re = re.compile(r'^\s+Continue:\ssequence\s(\d+)$', re.M)
         match = continue_re.search(config)
         value = int(match.group(1)) if match else None
         return {'continue': value}

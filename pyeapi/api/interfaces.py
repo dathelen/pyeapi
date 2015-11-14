@@ -718,6 +718,9 @@ class VxlanInterface(BaseInterface):
         except:
             return None
 
+        if not config:
+            return None
+
         response = super(VxlanInterface, self).get(name)
         response.update(dict(name=name, type='vxlan'))
 

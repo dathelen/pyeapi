@@ -138,7 +138,6 @@ class StandardAcls(EntityCollection):
             return None
 
         acls = parse_acls(config)
-        print acls
         resources = dict()
 
         for acl in acls:

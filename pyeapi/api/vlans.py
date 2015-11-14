@@ -53,6 +53,7 @@ Parameters:
 
 from pyeapi.api import EntityCollection
 from pyeapi.utils import make_iterable
+import re
 
 
 def isvlan(value):

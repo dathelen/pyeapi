@@ -95,7 +95,6 @@ class System(Entity):
                 object is intended to be merged into the resource dict
         """
         value = 'localhost'
-        print config
         match = re.search(r'^hostname:?\s(\S+)\n', config, re.M | re.I)
         if match:
             value = match.group(1)

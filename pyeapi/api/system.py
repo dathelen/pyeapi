@@ -64,17 +64,27 @@ class System(Entity):
             dict: Represents the node's system configuration
         """
         commands = list()
-        commands.append('show running-config')
+        commands.append('show ip route')
+        commands.append('show hostname')
 
         try:
             result = self.node.enable(commands, encoding='text')
-            config = result[0]['result']['output']
+            ip_route = result[0]['result']['output']
+            hostname = result[1]['result']['output']
         except:
-            return None
+            try:
+                commands = list()
+                commands.append('show ip route')
+                commands.append('show running-config | grep hostname')
+                result = self.node.enable(commands, encoding='text')
+                ip_route = result[0]['result']['output']
+                hostname = result[1]['result']['output']
+            except:
+                return None
 
         resource = dict()
-        resource.update(self._parse_hostname(config))
-        resource.update(self._parse_iprouting(config))
+        resource.update(self._parse_hostname(hostname))
+        resource.update(self._parse_iprouting(ip_route))
         return resource
 
     def _parse_hostname(self, config):
@@ -85,9 +95,11 @@ class System(Entity):
                 object is intended to be merged into the resource dict
         """
         value = 'localhost'
-        match = re.search(r'^hostname ([^\s]+)$', config, re.M)
+        print config
+        match = re.search(r'^hostname:?\s(\S+)\n', config, re.M | re.I)
         if match:
             value = match.group(1)
+        value = str(value).strip()
         return dict(hostname=value)
 
     def _parse_iprouting(self, config):
@@ -97,7 +109,7 @@ class System(Entity):
             dict: The configure value for ip routing.  The returned dict
                 object is intendd to be merged into the resource dict
         """
-        value = 'no ip routing' not in config
+        value = 'IP routing not enabled' not in config
         return dict(iprouting=value)
 
     def set_hostname(self, value=None, default=False):

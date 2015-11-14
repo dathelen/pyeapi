@@ -93,10 +93,19 @@ class Routemaps(EntityCollection):
                             }
                 }
         """
-        if not self.get_block(r'route-map\s%s\s\w+\s\d+' % name):
+        commands = list()
+        commands.append('show route-map %s' % name)
+
+        try:
+            result = self.node.enable(commands, encoding='text')
+            config = result[0]['result']['output']
+        except:
             return None
 
-        return self._parse_entries(name)
+        if not config:
+            return None
+
+        return self._parse_entries(config)
 
     def getall(self):
         resources = dict()
@@ -107,22 +116,34 @@ class Routemaps(EntityCollection):
                 resources[name] = routemap
         return resources
 
-    def _parse_entries(self, name):
+    def _parse_entries(self, config):
 
-        routemap_re = re.compile(r'^route-map\s%s\s(\w+)\s(\d+)$'
-                                 % name, re.M)
+        routemaps_re = re.compile(r'route-map\s(\w+)\s(\w+)\s(\d+)', re.M)
+        starts = list()
+        ends = list()
+        blocks = list()
+        for m in routemaps_re.finditer(config):
+            starts.append(m.start())
+            if m.start() > 0:
+                ends.append(m.start() - 1)
+
+        ends.append(len(config))
+
+        for i, val in enumerate(starts):
+            blocks.append(config[val:ends[i]])
+
         entries = list()
-        for entry in routemap_re.findall(self.config):
+
+        for entry in blocks:
             resource = dict()
-            action, seqno = entry
-            routemap = self.get_block(r'route-map\s%s\s%s\s%s'
-                                      % (name, action, seqno))
+            rm = routemaps_re.search(entry)
+            name, action, seqno = rm.groups()
 
             resource = dict(name=name, action=action, seqno=seqno, attr=dict())
-            resource['attr'].update(self._parse_match_statements(routemap))
-            resource['attr'].update(self._parse_set_statements(routemap))
-            resource['attr'].update(self._parse_continue_statement(routemap))
-            resource['attr'].update(self._parse_description(routemap))
+            resource['attr'].update(self._parse_match_statements(entry))
+            resource['attr'].update(self._parse_set_statements(entry))
+            resource['attr'].update(self._parse_continue_statement(entry))
+            resource['attr'].update(self._parse_description(entry))
             entries.append(resource)
 
         return self._merge_entries(entries)

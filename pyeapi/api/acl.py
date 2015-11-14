@@ -48,6 +48,8 @@ import netaddr
 
 from pyeapi.api import EntityCollection
 
+STANDARD_ACL_NAME = re.compile(r'^Standard\sIP\sAccess\sList\s(\S+)$\n', re.M)
+
 def mask_to_prefixlen(mask):
     """Converts a subnet mask from dotted decimal to bit length
 
@@ -59,6 +61,7 @@ def mask_to_prefixlen(mask):
     """
     mask = mask or '255.255.255.255'
     return netaddr.IPAddress(mask).netmask_bits()
+
 
 def prefixlen_to_mask(prefixlen):
     """Converts a prefix length to a dotted decimal subnet mask
@@ -73,6 +76,28 @@ def prefixlen_to_mask(prefixlen):
     addr = '0.0.0.0/%s' % prefixlen
     return str(netaddr.IPNetwork(addr).netmask)
 
+
+def parse_acls(config):
+    """Takes the output of 'show ip access-lists' and breaks the configuration
+    into a list where each entry is a dictionary with keys 'name' and 'text'.
+    The 'name' key holds the ACL name and the 'text' key holds the ACL
+    configuration text.
+    """
+    blocks = list()
+    for acl in STANDARD_ACL_NAME.finditer(config):
+        name = acl.group(1)
+        block_start, line_end = acl.regs[0]
+
+        match = re.search(r'^$', config[line_end:], re.M)
+        _, block_end = match.regs[0]
+        block_end = line_end + block_end
+
+        text = config[block_start:block_end]
+        blocks.append(dict(name=name, text=text))
+
+    return blocks
+
+
 class StandardAcls(EntityCollection):
 
     entry_re = re.compile(r'(\d+)'
@@ -85,7 +110,14 @@ class StandardAcls(EntityCollection):
                           r'(?: (log))?')
 
     def get(self, name):
-        config = self.get_block('ip access-list standard %s' % name)
+        commands = list()
+        commands.append('show ip access-lists %s' % name)
+        try:
+            result = self.node.enable(commands, encoding='text')
+            config = result[0]['result']['output']
+        except:
+            return None
+
         if not config:
             return None
 
@@ -94,10 +126,23 @@ class StandardAcls(EntityCollection):
         return resource
 
     def getall(self):
+        commands = list()
+        commands.append('show ip access-lists')
+        try:
+            result = self.node.enable(commands, encoding='text')
+            config = result[0]['result']['output']
+        except:
+            return None
+
+        if not config:
+            return None
+
+        acls = parse_acls(config)
+        print acls
         resources = dict()
-        acls = re.compile(r'ip access-list standard ([^\s]+)')
-        for name in acls.findall(self.config):
-            resources[name] = self.get(name)
+
+        for acl in acls:
+            resources[acl['name']] = self._parse_entries(acl['text'])
         return resources
 
     def _parse_entries(self, config):
@@ -146,6 +191,6 @@ class StandardAcls(EntityCollection):
         cmds = ['ip access-list standard %s' % name, 'no %s' % seqno, 'exit']
         return self.configure(cmds)
 
+
 def instance(node):
     return StandardAcls(node)
-

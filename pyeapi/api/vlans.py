@@ -54,10 +54,6 @@ Parameters:
 from pyeapi.api import EntityCollection
 from pyeapi.utils import make_iterable
 
-# NAME_RE = re.compile(r'(?:name\s)(?P<value>.*)$', re.M)
-# STATE_RE = re.compile(r'(?:state\s)(?P<value>.*)$', re.M)
-# TRUNK_GROUP_RE = re.compile(r'(?:trunk\sgroup\s)(?P<value>.*)$', re.M)
-
 
 def isvlan(value):
     """Checks if the argument is a valid VLAN

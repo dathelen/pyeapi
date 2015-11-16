@@ -28,6 +28,7 @@ def parse_report(data):
                     time=float(entry[2]))
 
         entries[api].append(test)
+
     return entries
 
 
@@ -36,8 +37,9 @@ def plot_data(api, tests):
 
     y_vals = list()
     x_vals = list()
-    for test in tests:
-        #print test
+    sorted_tests = sorted(tests, key=lambda k: k['time'])
+
+    for test in sorted_tests:
         y_vals.append(test['time'])
         x_vals.append(test['test_name'])
 
@@ -46,9 +48,8 @@ def plot_data(api, tests):
     ind = np.arange(N)  # the x locations for the groups
     width = 0.35       # the width of the bars
 
-
     fig, ax = plt.subplots()
-    plt.gcf().subplots_adjust(bottom=0.35, left=0.25)
+    plt.gcf().subplots_adjust(bottom=0.65, left=0.20)
     rects1 = ax.bar(ind, y_vals, width, color='r')
 
     # add some text for labels, title and axes ticks
@@ -60,7 +61,7 @@ def plot_data(api, tests):
     # ax.legend((rects1[0], rects2[0]), ('Men', 'Women'))
 
     print 'Saving %s report' % api
-    plt.savefig(api)
+    plt.savefig(os.path.join(HERE, api))
 
 
 def main():

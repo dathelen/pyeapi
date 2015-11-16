@@ -68,6 +68,6 @@ coverage_report:
 
 performance:
 	nosetests --with-stopwatch -w test/system/ --save-directory=test/performance
-	cp .nose-stopwatch-times test/performance/stopwatch-$BRANCH
-	rm test/performance/.nose-stopwatch-times
+	cp .nose-stopwatch-times test/performance/stopwatch-$(BRANCH)
+	rm .nose-stopwatch-times
 	$(PYTHON) test/performance/performance.py

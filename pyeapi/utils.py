@@ -161,7 +161,7 @@ def make_iterable(value):
     Returns:
         An iterable object of type list
     """
-    if isinstance(value, str):
+    if isinstance(value, (str, unicode)):
         value = [value]
 
     if not isinstance(value, collections.Iterable):
@@ -231,4 +231,3 @@ def collapse_range(arg, value_delimiter=',', range_delimiter='-'):
         else:
             values.extend([v1])
     return [str(x) for x in values]
-

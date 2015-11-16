@@ -59,3 +59,7 @@ target/
 
 # allow unittest lib
 !/test/lib
+
+# Ignore png performance graphs
+*.png
+test/performance/stopwatch-*

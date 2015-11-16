@@ -102,10 +102,17 @@ class Interfaces(EntityCollection):
                 }
 
         """
-        interfaces_re = re.compile(r'(?<=^interface\s)(.+)$', re.M)
+        commands = list()
+        commands.append('show interfaces')
+
+        try:
+            result = self.node.enable(commands)
+            vlan_info = result[0]['result']['interfaces']
+        except:
+            return None
 
         response = dict()
-        for name in interfaces_re.findall(self.config):
+        for name in interfaces:
             interface = self.get(name)
             if interface:
                 response[name] = interface

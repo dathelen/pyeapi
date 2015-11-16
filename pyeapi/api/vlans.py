@@ -121,11 +121,25 @@ class Vlans(EntityCollection):
             A dict object of Vlan attributes
 
         """
-        vlans_re = re.compile(r'(?<=^vlan\s)(\d+)', re.M)
+        commands = list()
+        commands.append('show vlan')
+        commands.append('show vlan trunk group')
+
+        try:
+            result = self.node.enable(commands)
+            vlan_info = result[0]['result']['vlans']
+            vlan_trunks = result[1]['result']['trunkGroups']
+        except:
+            return None
 
         response = dict()
-        for vid in vlans_re.findall(self.config):
-            response[vid] = self.get(vid)
+        for vid in vlan_info:
+            trunks = vlan_trunks.get(vid).get('names')
+            vlan = dict(vlan_id=vid,
+                        name=vlan_info[vid].get('name'),
+                        state=vlan_info[vid].get('status'),
+                        trunk_groups=trunks)
+            response[vid] = vlan
         return response
 
     def create(self, vid):
@@ -181,7 +195,6 @@ class Vlans(EntityCollection):
         commands = make_iterable(commands)
         commands.insert(0, 'vlan %s' % vid)
         return self.configure(commands)
-
 
     def set_name(self, vid, name=None, default=False):
         """ Configures the VLAN name
@@ -256,7 +269,6 @@ class Vlans(EntityCollection):
                 failure = True
 
         return not failure
-
 
     def add_trunk_group(self, vid, name):
         """ Adds a new trunk group to the Vlan in the running-config

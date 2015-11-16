@@ -24,6 +24,7 @@ COVERAGE=coverage
 SITELIB = $(shell $(PYTHON) -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")
 
 VERSION := $(shell cat VERSION)
+BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 
 ########################################################
 
@@ -64,3 +65,9 @@ systest: clean
 
 coverage_report:
 	$(COVERAGE) report -m
+
+performance:
+	nosetests --with-stopwatch -w test/system/ --save-directory=test/performance
+	cp .nose-stopwatch-times test/performance/stopwatch-$BRANCH
+	rm test/performance/.nose-stopwatch-times
+	$(PYTHON) test/performance/performance.py

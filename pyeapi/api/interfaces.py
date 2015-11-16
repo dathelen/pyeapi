@@ -107,13 +107,13 @@ class Interfaces(EntityCollection):
 
         try:
             result = self.node.enable(commands)
-            vlan_info = result[0]['result']['interfaces']
+            interfaces = result[0]['result']['interfaces']
         except:
             return None
 
         response = dict()
         for name in interfaces:
-            interface = self.get(name)
+            interface = self.get(str(name))
             if interface:
                 response[name] = interface
         return response
@@ -571,10 +571,11 @@ class PortchannelInterface(BaseInterface):
         if not members:
             return DEFAULT_LACP_MODE
 
-        for member in self.get_members(name):
-            match = re.search(r'channel-group\s\d+\smode\s(?P<value>.+)',
-                              self.get_block('^interface %s' % member))
-            return match.group('value')
+        cmd = 'show running-config interfaces %s' % str(members[0])
+        config = self.node.enable(cmd, encoding='text')[0]['result']['output']
+        match = re.search(r'channel-group\s\d+\smode\s(?P<value>.+)',
+                          config)
+        return match.group('value')
 
     def get_members(self, name):
         """Returns the member interfaces for the specified Port-Channel

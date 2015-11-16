@@ -575,7 +575,10 @@ class PortchannelInterface(BaseInterface):
         config = self.node.enable(cmd, encoding='text')[0]['result']['output']
         match = re.search(r'channel-group\s\d+\smode\s(?P<value>.+)',
                           config)
-        return match.group('value')
+        value = None
+        if match:
+            value = match.group('value')
+        return value
 
     def get_members(self, name):
         """Returns the member interfaces for the specified Port-Channel

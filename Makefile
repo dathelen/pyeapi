@@ -65,9 +65,3 @@ systest: clean
 
 coverage_report:
 	$(COVERAGE) report -m
-
-performance:
-	nosetests --with-stopwatch -w test/system/ --save-directory=test/performance
-	cp .nose-stopwatch-times test/performance/stopwatch-$(BRANCH)
-	rm .nose-stopwatch-times
-	$(PYTHON) test/performance/performance.py

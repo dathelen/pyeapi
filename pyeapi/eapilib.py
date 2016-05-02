@@ -44,7 +44,7 @@ import logging
 import ssl
 
 try:
-     # Try Python 3.x import first
+    # Try Python 3.x import first
     from http.client import HTTPConnection, HTTPSConnection
 except ImportError:
     # Use Python 2.7 import as a fallback
@@ -356,7 +356,7 @@ class EapiConnection(object):
         """
         try:
             _LOGGER.debug("Request content: {}".format(data))
-            #debug('eapi_request: %s' % data)
+            # debug('eapi_request: %s' % data)
 
             self.transport.putrequest('POST', '/command-api')
 
@@ -367,16 +367,19 @@ class EapiConnection(object):
                 self.transport.putheader('Authorization',
                                          'Basic %s' % (self._auth))
 
-            self.transport.endheaders()
             if int(sys.version[0]) > 2:
                 # For Python 3.x compatibility
                 data = data.encode()
 
-            self.transport.send(data)
+            self.transport.endheaders(message_body=data)
 
-            response = self.transport.getresponse()
+            try:  # Python 2.7: use buffering of HTTP responses
+                response = self.transport.getresponse(buffering=True)
+            except TypeError:  # Python 2.6: older, and 3.x on
+                response = self.transport.getresponse()
+
             response_content = response.read()
-            _LOGGER.debug("Response: status: {status}, reason: {reason}".format(
+            _LOGGER.debug("Response: status:{status}, reason:{reason}".format(
                           status=response.status,
                           reason=response.reason))
             _LOGGER.debug("Response content: {}".format(response_content))
@@ -386,7 +389,7 @@ class EapiConnection(object):
                 # For Python 3.x - decode bytes into string
                 response_content = response_content.decode()
             decoded = json.loads(response_content)
-            debug('eapi_response: %s' % decoded)
+            _LOGGER.debug('eapi_response: %s' % decoded)
 
             if 'error' in decoded:
                 (code, msg, err, out) = self._parse_error_message(decoded)
@@ -488,7 +491,8 @@ class HttpLocalEapiConnection(EapiConnection):
         super(HttpLocalEapiConnection, self).__init__()
         port = port or DEFAULT_HTTP_LOCAL_PORT
         path = path or DEFAULT_HTTP_PATH
-        self.transport = HttpConnection(path, 'localhost', port, timeout=timeout)
+        self.transport = HttpConnection(path, 'localhost', port,
+                                        timeout=timeout)
 
 class HttpEapiConnection(EapiConnection):
     def __init__(self, host, port=None, path=None, username=None,
@@ -511,7 +515,8 @@ class HttpsEapiConnection(EapiConnection):
         if context is None and not enforce_verification:
             context = self.disable_certificate_verification()
 
-        self.transport = https_connection_factory(path, host, port, context, timeout)
+        self.transport = https_connection_factory(path, host, port,
+                                                  context, timeout)
         self.authentication(username, password)
 
     def disable_certificate_verification(self):

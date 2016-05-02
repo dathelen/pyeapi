@@ -55,12 +55,12 @@ class TestUtils(unittest.TestCase):
     def test_expand_mixed(self):
         vlans = '1,3,5-7,9'
         result = pyeapi.utils.expand_range(vlans)
-        self.assertEqual(result, ['1','3','5','6','7','9'])
+        self.assertEqual(result, ['1', '3', '5', '6', '7', '9'])
 
     def test_collapse_singles(self):
         vlans = '1,3,5,7'
         result = pyeapi.utils.collapse_range(vlans)
-        self.assertEqual(result, ['1','3','5','7'])
+        self.assertEqual(result, ['1', '3', '5', '7'])
 
     def test_collapse_range(self):
         vlans = '1,2,3,4,5'
@@ -70,10 +70,10 @@ class TestUtils(unittest.TestCase):
     def test_collapse_mixed(self):
         vlans = '1,3,5,6,7,9'
         result = pyeapi.utils.collapse_range(vlans)
-        self.assertEqual(result, ['1','3','5-7','9'])
+        self.assertEqual(result, ['1', '3', '5-7', '9'])
 
     @patch('pyeapi.utils._LOGGER')
     def test_debug(self, mock_logger):
         pyeapi.utils.islocalconnection = Mock(return_value=True)
         pyeapi.utils.debug('test')
-        mock_logger.debug.assert_called_with('test')
+        mock_logger.debug.assert_called_with('test_utils.test_debug: test')

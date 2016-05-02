@@ -91,6 +91,7 @@ contains the settings for nodes used by the connect_to function.
 
 """
 import os
+import sys
 import logging
 import re
 
@@ -98,17 +99,17 @@ try:
     # Try Python 3.x import first
     # Note: SafeConfigParser is deprecated and replaced by ConfigParser
     from configparser import ConfigParser as SafeConfigParser
+    from configparser import Error as SafeConfigParserError
 except ImportError:
     # Use Python 2.7 import as a fallback
     from ConfigParser import SafeConfigParser
+    from ConfigParser import Error as SafeConfigParserError
 
-from pyeapi.utils import load_module, make_iterable
+from pyeapi.utils import load_module, make_iterable, debug
 
 from pyeapi.eapilib import HttpEapiConnection, HttpsEapiConnection
 from pyeapi.eapilib import SocketEapiConnection, HttpLocalEapiConnection
 from pyeapi.eapilib import CommandError
-
-LOGGER = logging.getLogger(__name__)
 
 CONFIG_SEARCH_PATH = ['~/.eapi.conf', '/mnt/flash/eapi.conf']
 
@@ -191,7 +192,14 @@ class Config(SafeConfigParser):
         Args:
             filename (str): The full path to the file to load
         """
-        SafeConfigParser.read(self, filename)
+
+        try:
+            SafeConfigParser.read(self, filename)
+        except SafeConfigParserError as exc:
+            # Ignore file and syslog a message on SafeConfigParser errors
+            msg = ("%s: parsing error in eapi conf file: %s" %
+                   (type(exc).__name__, filename))
+            debug(msg)
 
         self._add_default_connection()
 
@@ -376,7 +384,7 @@ def make_connection(transport, **kwargs):
     return klass(**kwargs)
 
 def connect(transport=None, host='localhost', username='admin',
-            password='', port=None, timeout=60, return_node=False):
+            password='', port=None, timeout=60, return_node=False, **kwargs):
     """ Creates a connection using the supplied settings
 
     This function will create a connection to an Arista EOS node using
@@ -408,7 +416,7 @@ def connect(transport=None, host='localhost', username='admin',
                                  password=password, port=port, timeout=timeout)
     if return_node:
         return Node(connection, transport=transport, host=host,
-                    username=username, password=password, port=port)
+                    username=username, password=password, port=port, **kwargs)
     return connection
 
 
@@ -500,7 +508,7 @@ class Node(object):
         Args:
             commands (str, list): The commands to send to the node in config
                 mode.  If the commands argument is a string it will be cast to
-                a list. 
+                a list.
                 The list of commands will also be prepended with the
                 necessary commands to put the session in config mode.
 
@@ -511,7 +519,7 @@ class Node(object):
         """
         commands = make_iterable(commands)
         commands = list(commands)
-        
+
         # push the configure command onto the command stack
         commands.insert(0, 'configure terminal')
         response = self.run_commands(commands)
@@ -638,6 +646,18 @@ class Node(object):
         """
         commands = make_iterable(commands)
 
+        # Some commands are multiline commands. These are banner commands and
+        # SSL commands. So with this two lines we
+        # can support those by passing commands by doing:
+        # banner login MULTILINE: This is my banner.\nAnd I even support
+        # multiple lines.
+        # Why this? To be able to read a configuration from a file, split it
+        # into lines and pass it as it is
+        # to pyeapi without caring about multiline commands.
+        commands = [{'cmd': c.split('MULTILINE:')[0],
+                     'input': '%s\n' % (c.split('MULTILINE:')[1].strip())}
+                    if 'MULTILINE:' in c else c for c in commands]
+
         if self._enablepwd:
             commands.insert(0, {'cmd': 'enable', 'input': self._enablepwd})
         else:
@@ -753,10 +773,5 @@ def connect_to(name):
     if not kwargs:
         raise AttributeError('connection profile not found in config')
 
-    node = connect(transport=kwargs.get('transport'),
-                   host=kwargs.get('host'),
-                   username=kwargs.get('username'),
-                   password=kwargs.get('password'),
-                   port=kwargs.get('port'),
-                   return_node=True)
+    node = connect(return_node=True, **kwargs)
     return node

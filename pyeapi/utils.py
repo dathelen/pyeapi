@@ -32,6 +32,7 @@
 import os
 import sys
 import imp
+import inspect
 import logging
 import logging.handlers
 import collections
@@ -46,10 +47,20 @@ except ImportError:
     from itertools import izip_longest as zip_longest
 
 _LOGGER = logging.getLogger(__name__)
+_LOGGER.setLevel(logging.DEBUG)
 
-_syslog_handler = logging.handlers.SysLogHandler()
+# Create a handler to log messages to syslog
+if sys.platform == "darwin":
+    _syslog_handler = logging.handlers.SysLogHandler(address='/var/run/syslog')
+else:
+    _syslog_handler = logging.handlers.SysLogHandler()
 _LOGGER.addHandler(_syslog_handler)
-_LOGGER.setLevel(logging.INFO)
+
+# Create a handler to log messages to stderr
+_stderr_formatter = logging.Formatter('\n\n******** LOG NOTE ********\n%(message)s\n')
+_stderr_handler = logging.StreamHandler()
+_stderr_handler.setFormatter(_stderr_formatter)
+_LOGGER.addHandler(_stderr_handler)
 
 def import_module(name):
     """ Imports a module into the current runtime environment
@@ -139,15 +150,17 @@ def islocalconnection():
     return os.path.exists('/etc/Eos-release')
 
 def debug(text):
-    """Prints test to syslog when on a local connection
+    """Log a message to syslog and stderr
 
     Args:
-        text (str): The string object to print to syslog
+        text (str): The string object to print
 
     """
-
-    if islocalconnection():
-        _LOGGER.debug(text)
+    frame = inspect.currentframe().f_back
+    module = frame.f_globals['__name__']
+    func = frame.f_code.co_name
+    msg = "%s.%s: %s" % (module, func, text)
+    _LOGGER.debug(msg)
 
 def make_iterable(value):
     """Converts the supplied value to a list object
@@ -190,7 +203,7 @@ def expand_range(arg, value_delimiter=',', range_delimiter='-'):
     for item in expanded:
         if range_delimiter in item:
             start, end = item.split(range_delimiter)
-            _expand = range(int(start), int(end)+1)
+            _expand = range(int(start), int(end) + 1)
             values.extend([str(x) for x in _expand])
         else:
             values.extend([item])
@@ -231,4 +244,3 @@ def collapse_range(arg, value_delimiter=',', range_delimiter='-'):
         else:
             values.extend([v1])
     return [str(x) for x in values]
-

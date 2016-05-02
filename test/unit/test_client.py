@@ -93,6 +93,24 @@ class TestNode(unittest.TestCase):
         result = self.node.config(commands)
         self.assertEqual(result, [{}, {}])
 
+    def test_config_with_single_multiline(self):
+        command = ('banner login MULTILINE:This is a new banner\n'
+                   'with different lines!!!')
+
+        self.node.run_commands = Mock(return_value=[{}, {}])
+        result = self.node.config(command)
+        self.assertEqual(result, [{}])
+
+    def test_config_with_multiple_multilines(self):
+        commands = [random_string(),
+                    ('banner login MULTILINE:This is a new banner\n'
+                    'with different lines!!!'),
+                    random_string()]
+
+        self.node.run_commands = Mock(return_value=[{}, {}, {}, {}])
+        result = self.node.config(commands)
+        self.assertEqual(result, [{}, {}, {}])
+
     def test_get_config(self):
         config = [dict(output='test\nconfig')]
         self.node.run_commands = Mock(return_value=config)
@@ -138,6 +156,7 @@ class TestClient(unittest.TestCase):
         self.assertEqual(cfg['host'], '192.168.1.16')
         self.assertEqual(cfg['username'], 'eapi')
         self.assertEqual(cfg['password'], 'password')
+        self.assertEqual(cfg['enablepwd'], 'enablepwd')
 
     def test_load_config_for_connection_with_env(self):
         os.environ['EAPI_CONF'] = get_fixture('eapi.conf')
@@ -146,6 +165,7 @@ class TestClient(unittest.TestCase):
         self.assertEqual(cfg['host'], '192.168.1.16')
         self.assertEqual(cfg['username'], 'eapi')
         self.assertEqual(cfg['password'], 'password')
+        self.assertEqual(cfg['enablepwd'], 'enablepwd')
 
     def test_load_config(self):
         conf = get_fixture('eapi.conf')
@@ -154,6 +174,23 @@ class TestClient(unittest.TestCase):
         for name in ['localhost', 'test1', 'test2']:
             name = 'connection:%s' % name
             self.assertIn(name, pyeapi.client.config.sections())
+
+    def test_load_config_empty_conf(self):
+        conf = get_fixture('empty.conf')
+        pyeapi.client.load_config(filename=conf)
+        conns = pyeapi.client.config.connections
+        self.assertEqual(conns, ['localhost'])
+
+    def test_load_config_yaml(self):
+        conf = get_fixture('eapi.conf.yaml')
+        pyeapi.client.load_config(filename=conf)
+        conns = pyeapi.client.config.connections
+        self.assertEqual(conns, ['localhost'])
+
+    def test_load_config_env_path(self):
+        os.environ['EAPI_CONF'] = get_fixture('env_path.conf')
+        pyeapi.client.config.autoload()
+        self.assertIn('connection:env_path', pyeapi.client.config.sections())
 
     def test_config_always_has_default_connection(self):
         conf = '/invalid.conf'
@@ -256,22 +293,38 @@ class TestClient(unittest.TestCase):
         with patch.dict(pyeapi.client.TRANSPORTS, {'https': transport}):
             conf = get_fixture('eapi.conf')
             pyeapi.client.load_config(filename=conf)
-            pyeapi.client.connect(host='192.168.1.16', username='eapi',
-                                  password='password', port=None, timeout=60,
-                                  return_node=True)
+            node = pyeapi.client.connect(host='192.168.1.16', username='eapi',
+                                         password='password', port=None,
+                                         timeout=60, return_node=True)
             kwargs = dict(host='192.168.1.16', username='eapi',
                           password='password', port=None, timeout=60)
             transport.assert_called_once_with(**kwargs)
+            self.assertIsNone(node._enablepwd)
+
+    def test_connect_return_node_enablepwd(self):
+        transport = Mock()
+        with patch.dict(pyeapi.client.TRANSPORTS, {'https': transport}):
+            conf = get_fixture('eapi.conf')
+            pyeapi.client.load_config(filename=conf)
+            node = pyeapi.client.connect(host='192.168.1.16', username='eapi',
+                                         password='password', port=None,
+                                         timeout=60, enablepwd='enablepwd',
+                                         return_node=True)
+            kwargs = dict(host='192.168.1.16', username='eapi',
+                          password='password', port=None, timeout=60)
+            transport.assert_called_once_with(**kwargs)
+            self.assertEqual(node._enablepwd, 'enablepwd')
 
     def test_connect_to_with_config(self):
         transport = Mock()
         with patch.dict(pyeapi.client.TRANSPORTS, {'https': transport}):
             conf = get_fixture('eapi.conf')
             pyeapi.client.load_config(filename=conf)
-            pyeapi.client.connect_to('test1')
+            node = pyeapi.client.connect_to('test1')
             kwargs = dict(host='192.168.1.16', username='eapi',
                           password='password', port=None, timeout=60)
             transport.assert_called_once_with(**kwargs)
+            self.assertEqual(node._enablepwd, 'enablepwd')
 
 
 if __name__ == '__main__':
